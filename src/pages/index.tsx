@@ -8,7 +8,7 @@ import { api, RouterOutputs } from "~/utils/api";
 import Image from "next/image";
 import { LoadingPage, LoadingSpinner } from "~/components/loading";
 import { useState } from "react";
-
+import { toast } from "react-hot-toast";
 dayjs.extend(relativeTime);
 
 const CreatePostWizard = () => {
@@ -18,8 +18,16 @@ const CreatePostWizard = () => {
   const { mutate, isLoading: isPosting } = api.posts.create.useMutation({
     onSuccess: () => {
       setInput("");
-      ctx.posts.getAll.invalidate();
-    }
+      void ctx.posts.getAll.invalidate();
+    },
+    onError: (e) => {
+      const errorMessage = e.data?.zodError?.fieldErrors.content;
+      if (errorMessage && errorMessage[0]) {
+        toast.error(errorMessage[0]);
+      } else {
+        toast.error("failed to post, please try again!");
+      }
+    },
   });
   if (!user) return null;
   return (
@@ -38,13 +46,29 @@ const CreatePostWizard = () => {
         value={input}
         onChange={(e) => setInput(e.target.value)}
         disabled={isPosting}
-      />
-      <button
-        onClick={() => {
-          mutate({ content: input });
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            if(input !== "") mutate({ content: input });
+          }
         }}
-        
-      > submit</button>
+      />
+      {input !== "" && !isPosting && (
+        <button
+          onClick={() => {
+            mutate({ content: input });
+          }}
+          disabled={isPosting}
+        >
+          {" "}
+          submit
+        </button>
+      )}
+      {isPosting && (
+        <div className="flex justify-center items-center">
+          <LoadingSpinner />
+        </div>
+      )}
     </div>
   );
 };
@@ -63,10 +87,15 @@ const PostView = (props: PostWithUser) => {
       />
       <div className="flex flex-col">
         <div className="flex">
+          <Link href={`/@${author.username}`}>
           <span>{`@${author.username}`}</span>
+          </Link>
+          <Link href={`/post/${post.id}`}>
           <span className="font-thin">{` · ${dayjs(
             post.createdAt
           ).fromNow()}`}</span>
+          </Link>
+          
         </div>
         <span>{post.content}</span>
       </div>
