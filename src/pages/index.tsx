@@ -7,11 +7,20 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import { api, RouterOutputs } from "~/utils/api";
 import Image from "next/image";
 import { LoadingPage, LoadingSpinner } from "~/components/loading";
+import { useState } from "react";
 
 dayjs.extend(relativeTime);
 
 const CreatePostWizard = () => {
   const { user } = useUser();
+  const [input, setInput] = useState("");
+  const ctx = api.useContext();
+  const { mutate, isLoading: isPosting } = api.posts.create.useMutation({
+    onSuccess: () => {
+      setInput("");
+      ctx.posts.getAll.invalidate();
+    }
+  });
   if (!user) return null;
   return (
     <div className="flex w-full gap-3">
@@ -25,7 +34,17 @@ const CreatePostWizard = () => {
       <input
         placeholder="type emojis"
         className="grow bg-transparent outline-none"
+        type={"text"}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        disabled={isPosting}
       />
+      <button
+        onClick={() => {
+          mutate({ content: input });
+        }}
+        
+      > submit</button>
     </div>
   );
 };
@@ -57,11 +76,11 @@ const PostView = (props: PostWithUser) => {
 
 const Feed = () => {
   const { data, isLoading: postsLoading } = api.posts.getAll.useQuery();
-  if(postsLoading) return <LoadingPage/>;
-  if(!data) return <div>something went wrong</div>;
+  if (postsLoading) return <LoadingPage />;
+  if (!data) return <div>something went wrong</div>;
   return (
     <div className="flex flex-col">
-      {[...data, ...data]?.map((fullPost) => (
+      {data.map((fullPost) => (
         <PostView {...fullPost} key={fullPost.post.id} />
       ))}
     </div>
@@ -69,8 +88,8 @@ const Feed = () => {
 };
 
 const Home: NextPage = () => {
-  const {isLoaded: userLoaded, isSignedIn } = useUser();
-   api.posts.getAll.useQuery();
+  const { isLoaded: userLoaded, isSignedIn } = useUser();
+  api.posts.getAll.useQuery();
   // return empty div if both arent loaded
   if (!userLoaded) return <div />;
   // if (isLoading) return <LoadingPage/>;
@@ -97,7 +116,7 @@ const Home: NextPage = () => {
 
             <SignIn path="/sign-in" routing="path" signUpUrl="/sign-up" />
           </div>
-          <Feed/>
+          <Feed />
         </div>
       </main>
     </>
